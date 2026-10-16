@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tramage Atelier — générateur de tramage / halftone</title>
+<meta name="description" content="Convertissez une image en tramage d'impression classique (points, carrés, lignes, losanges) dans le navigateur. Export PNG, SVG et JSON. Libre et gratuit.">
+<meta name="theme-color" content="#141210">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23141210'/%3E%3Ccircle cx='8' cy='8' r='3.2' fill='%23e8dcc8'/%3E%3Ccircle cx='16' cy='8' r='2.2' fill='%23e8dcc8'/%3E%3Ccircle cx='24' cy='8' r='1.2' fill='%23e8dcc8'/%3E%3Ccircle cx='8' cy='16' r='2.4' fill='%23e8dcc8'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23e8dcc8'/%3E%3Ccircle cx='24' cy='16' r='2' fill='%23e8dcc8'/%3E%3Ccircle cx='8' cy='24' r='1.4' fill='%23e8dcc8'/%3E%3Ccircle cx='16' cy='24' r='2.8' fill='%23e8dcc8'/%3E%3Ccircle cx='24' cy='24' r='3.8' fill='%23e8dcc8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <!-- Logo original : grille de points de tramage -->
+    <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+      <rect width="32" height="32" rx="7" fill="#1c1814"/>
+      <circle cx="8" cy="8" r="3.1" fill="#e8dcc8"/>
+      <circle cx="16" cy="8" r="2.1" fill="#e8dcc8"/>
+      <circle cx="24" cy="8" r="1.1" fill="#e8dcc8"/>
+      <circle cx="8" cy="16" r="2.3" fill="#e8dcc8"/>
+      <circle cx="16" cy="16" r="3.4" fill="#c45c26"/>
+      <circle cx="24" cy="16" r="1.9" fill="#e8dcc8"/>
+      <circle cx="8" cy="24" r="1.3" fill="#e8dcc8"/>
+      <circle cx="16" cy="24" r="2.7" fill="#e8dcc8"/>
+      <circle cx="24" cy="24" r="3.6" fill="#e8dcc8"/>
+    </svg>
+    <div>
+      <h1>Tramage Atelier</h1>
+      <p class="tag" data-i18n="tagline">Tramage classique pour l'impression, 100 % dans le navigateur</p>
+    </div>
+  </div>
+  <label class="lang">
+    <span class="sr" data-i18n="language">Langue</span>
+    <select id="lang" aria-label="Langue">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+      <option value="kab">Taqbaylit</option>
+    </select>
+  </label>
+</header>
+
+<main class="layout">
+  <section class="stage" aria-labelledby="canvasTitle">
+    <h2 id="canvasTitle" class="sr" data-i18n="canvasLabel">Aperçu du tramage</h2>
+
+    <div class="toolbar">
+      <label class="btn">
+        <input type="file" id="fileImg" accept="image/png,image/jpeg,image/webp,image/*" hidden>
+        <span data-i18n="loadImage">Charger une image</span>
+      </label>
+      <button class="btn ghost" id="btnSample" type="button" data-i18n="sample">Image d'essai</button>
+    </div>
+
+    <div class="canvas-wrap" id="drop" tabindex="0">
+      <canvas id="view" role="img" data-i18n-aria="canvasLabel" aria-label="Aperçu du tramage"></canvas>
+      <p class="drop-hint" id="dropHint" data-i18n="dropHint" hidden>Glissez une image ici (PNG, JPEG, WebP)</p>
+    </div>
+
+    <div class="export">
+      <button class="btn" id="btnPng" type="button" data-i18n="exportPng">Exporter PNG</button>
+      <button class="btn ghost" id="btnSvg" type="button" data-i18n="exportSvg">Exporter SVG</button>
+      <button class="btn ghost" id="btnJson" type="button" data-i18n="exportJson">Exporter JSON</button>
+      <label class="btn ghost">
+        <input type="file" id="fileJson" accept="application/json,.json" hidden>
+        <span data-i18n="importJson">Importer JSON</span>
+      </label>
+    </div>
+    <p class="note" data-i18n="privacy">Rien n'est envoyé : tout le calcul se fait sur votre appareil.</p>
+  </section>
+
+  <aside class="panel">
+    <h2 data-i18n="presets">Préréglages</h2>
+    <div class="presets" id="presets"></div>
+
+    <h2 data-i18n="settings">Réglages</h2>
+
+    <fieldset>
+      <legend data-i18n="pattern">Motif</legend>
+      <label class="ctl">
+        <select id="pattern">
+          <option value="dots" data-i18n-option="pat_dots">Points (ronds)</option>
+          <option value="squares" data-i18n-option="pat_squares">Carrés</option>
+          <option value="lines" data-i18n-option="pat_lines">Lignes (angle)</option>
+          <option value="lines-h" data-i18n-option="pat_lines_h">Lignes horizontales</option>
+          <option value="diamonds" data-i18n-option="pat_diamonds">Losanges</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Trame</legend>
+      <label class="ctl">
+        <span class="ctl-head"><span data-i18n="cellSize">Taille de cellule (LPI)</span><output id="outCell">8</output></span>
+        <input type="range" id="cellSize" min="3" max="28" step="1" value="8">
+      </label>
+      <label class="ctl">
+        <span class="ctl-head"><span data-i18n="angle">Angle de trame</span><output id="outAngle">45°</output></span>
+        <input type="range" id="angle" min="0" max="90" step="1" value="45">
+      </label>
+      <label class="ctl">
+        <span class="ctl-head"><span data-i18n="contrast">Contraste</span><output id="outContrast">1.20</output></span>
+        <input type="range" id="contrast" min="0.4" max="2.5" step="0.05" value="1.2">
+      </label>
+      <label class="ctl">
+        <span class="ctl-head"><span data-i18n="bias">Seuil (biais)</span><output id="outBias">0.00</output></span>
+        <input type="range" id="bias" min="-0.4" max="0.4" step="0.02" value="0">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="invert">
+        <span data-i18n="invert">Inverser (négatif)</span>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Couleurs</legend>
+      <label class="ctl ctl-color">
+        <span data-i18n="ink">Couleur d'encre</span>
+        <input type="color" id="ink" value="#1a1a1a">
+      </label>
+      <label class="ctl ctl-color">
+        <span data-i18n="paper">Couleur du papier</span>
+        <input type="color" id="paper" value="#f5f0e8">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="duotone">
+        <span data-i18n="duotone">Duotone (2e encre)</span>
+      </label>
+      <label class="ctl ctl-color" id="ink2Row">
+        <span data-i18n="ink2">Deuxième encre</span>
+        <input type="color" id="ink2" value="#c45c26">
+      </label>
+    </fieldset>
+
+    <div class="row end">
+      <button class="btn ghost" id="btnReset" type="button" data-i18n="reset">Réinitialiser</button>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  <span data-i18n="footer">Logiciel libre sous licence MIT.</span>
+  <a href="https://github.com/salimadour31-boop/tramage-atelier" data-i18n="source">Code source</a>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="i18n.js"></script>
+<script src="tramage.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
